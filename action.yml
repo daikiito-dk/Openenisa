@@ -1,0 +1,109 @@
+name: "openenisa"
+description: >-
+  CRA-ready SBOM triage in CI: parse your SBOM, match it against OSV feeds,
+  apply VEX statements, emit a schema-valid CSAF 2.0 document and an ENISA
+  early-warning envelope on the 24-hour clock.
+author: "openenisa contributors"
+
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  sbom:
+    description: "Path to the SBOM (CycloneDX 1.4/1.5/1.6 JSON+XML, SPDX 2.3 JSON+XML, SPDX 3.0)."
+    required: true
+  feeds:
+    description: "OSV feed path(s), one per line."
+    required: true
+  vex:
+    description: "Optional VEX document path(s) (OpenVEX, CSAF VEX, or a CycloneDX SBOM with embedded VEX), one per line."
+    required: false
+    default: ""
+  vendor-name:
+    description: "Publisher name written into the CSAF document."
+    required: true
+  vendor-namespace:
+    description: "Publisher namespace URL written into the CSAF document."
+    required: true
+  exploited:
+    description: "Mark findings as actively exploited (adds exploit_status threats, the CRA trigger)."
+    required: false
+    default: "false"
+  fail-on:
+    description: "Fail the workflow when findings breach a threshold: 'affected' or empty for never."
+    required: false
+    default: ""
+  out-dir:
+    description: "Directory for generated artifacts (findings.json, csaf.json, enisa-early-warning.json)."
+    required: false
+    default: "openenisa-out"
+
+outputs:
+  findings:
+    description: "Path to the triaged findings JSON."
+    value: ${{ steps.pipeline.outputs.findings }}
+  csaf:
+    description: "Path to the generated CSAF 2.0 document."
+    value: ${{ steps.pipeline.outputs.csaf }}
+  envelope:
+    description: "Path to the ENISA early-warning envelope."
+    value: ${{ steps.pipeline.outputs.envelope }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: install openenisa
+      shell: bash
+      run: |
+        if ! command -v openenisa >/dev/null 2>&1; then
+          cargo install --locked \
+            --git https://github.com/daikiito-dk/Openenisa \
+            openenisa
+        fi
+        openenisa --version
+
+    - name: run pipeline
+      id: pipeline
+      shell: bash
+      run: |
+        VEX_ARGS=""
+        if [ -n "${{ inputs.vex }}" ]; then
+          while IFS= read -r line; do
+            [ -n "$line" ] && VEX_ARGS="$VEX_ARGS --vex $line"
+          done <<< "${{ inputs.vex }}"
+        fi
+        FEED_ARGS=""
+        while IFS= read -r line; do
+          [ -n "$line" ] && FEED_ARGS="$FEED_ARGS --feed $line"
+        done <<< "${{ inputs.feeds }}"
+
+        FAIL_ARGS=""
+        if [ -n "${{ inputs.fail-on }}" ]; then
+          FAIL_ARGS="--fail-on ${{ inputs.fail-on }}"
+        fi
+
+        set +e
+        openenisa pipeline \
+          --sbom "${{ inputs.sbom }}" \
+          $FEED_ARGS \
+          $VEX_ARGS \
+          --out-dir "${{ inputs.out-dir }}" \
+          --vendor-name "${{ inputs.vendor-name }}" \
+          --vendor-namespace "${{ inputs.vendor-namespace }}" \
+          $( [ "${{ inputs.exploited }}" = "true" ] && echo --exploited ) \
+          $FAIL_ARGS
+        status=$?
+        set -e
+
+        echo "findings=${{ inputs.out-dir }}/findings.json" >> "$GITHUB_OUTPUT"
+        echo "csaf=${{ inputs.out-dir }}/csaf.json" >> "$GITHUB_OUTPUT"
+        echo "envelope=${{ inputs.out-dir }}/enisa-early-warning.json" >> "$GITHUB_OUTPUT"
+        exit $status
+
+    - name: upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: openenisa-artifacts
+        path: ${{ inputs.out-dir }}/
+        if-no-files-found: ignore

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bom xmlns="http://cyclonedx.org/schema/bom/1.6" serialNumber="urn:uuid:7e6c8af4-0d92-4a1b-9d0f-2b6a3c9e1f4d" version="1">
+  <metadata>
+    <component type="firmware" bom-ref="product-mx2400">
+      <name>MX-2400 Server Firmware</name>
+      <version>2.4.1</version>
+      <supplier><name>Meridian Systems</name></supplier>
+    </component>
+  </metadata>
+  <components>
+    <component type="library" bom-ref="pkg-openssl">
+      <name>openssl</name>
+      <version>3.0.12</version>
+      <purl>pkg:generic/openssl@3.0.12</purl>
+      <hashes><hash alg="SHA-256">2f1a3c8e5b7d9f0a1c2e3d4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7</hash></hashes>
+      <licenses><license><id>Apache-2.0</id></license></licenses>
+    </component>
+    <component type="library" bom-ref="pkg-zlib">
+      <name>zlib</name>
+      <version>1.2.13</version>
+      <purl>pkg:generic/zlib@1.2.13</purl>
+      <licenses><license><id>Zlib</id></license></licenses>
+    </component>
+    <component type="library" bom-ref="pkg-libssh2">
+      <name>libssh2</name>
+      <version>1.11.0</version>
+      <purl>pkg:generic/libssh2@1.11.0</purl>
+      <licenses><license><id>BSD-3-Clause</id></license></licenses>
+    </component>
+  </components>
+</bom>

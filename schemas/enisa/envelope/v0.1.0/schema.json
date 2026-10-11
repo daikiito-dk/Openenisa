@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openenisa.dev/schemas/enisa/envelope/v0.1.0/schema.json",
+  "title": "openenisa ENISA submission envelope",
+  "description": "A self-contained, submission-ready report package for CRA Article 14 obligations (24-hour early warning / 72-hour notification / 14-day final report). The envelope embeds a CSAF 2.0 document as evidence, records the statutory timeline, and validates offline. openenisa emits this format; live dispatch to the ENISA Single Reporting Platform is a pluggable transport concern (dry-run by default).",
+  "type": "object",
+  "required": ["enisa_envelope"],
+  "properties": {
+    "enisa_envelope": {
+      "type": "object",
+      "required": ["schema", "report", "meta"],
+      "properties": {
+        "schema": {
+          "const": "https://openenisa.dev/schemas/enisa/envelope/v0.1.0/schema.json"
+        },
+        "report": {
+          "type": "object",
+          "required": ["type", "classification", "reporter", "timeline", "vulnerabilities", "csaf"],
+          "properties": {
+            "type": {
+              "enum": ["early_warning", "notification", "final_report"]
+            },
+            "classification": {
+              "enum": ["vulnerability", "incident"]
+            },
+            "reporter": {
+              "type": "object",
+              "required": ["name"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "contact": { "type": ["string", "null"] },
+                "national_csirt": { "type": ["string", "null"] }
+              }
+            },
+            "product": {
+              "type": ["object", "null"],
+              "properties": {
+                "name": { "type": "string" },
+                "version": { "type": ["string", "null"] },
+                "vendor": { "type": ["string", "null"] }
+              }
+            },
+            "timeline": {
+              "type": "object",
+              "required": ["aware_at", "due_at", "sla_hours"],
+              "properties": {
+                "aware_at": { "type": "string", "minLength": 1 },
+                "due_at": { "type": "string", "minLength": 1 },
+                "sla_hours": { "enum": [24, 72, 336] }
+              }
+            },
+            "vulnerabilities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "status"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1 },
+                  "status": { "type": "string", "minLength": 1 },
+                  "actively_exploited": { "type": "boolean" },
+                  "details": { "type": ["string", "null"] }
+                }
+              }
+            },
+            "evidence": {
+              "type": ["object", "null"],
+              "properties": {
+                "sbom": {
+                  "type": ["object", "null"],
+                  "properties": {
+                    "path": { "type": "string" },
+                    "format": { "type": ["string", "null"] },
+                    "sha256": { "type": ["string", "null"] }
+                  }
+                },
+                "vex_sources": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "csaf": { "type": "object" }
+          }
+        },
+        "meta": {
+          "type": "object",
+          "required": ["generator", "generated_at", "report_id"],
+          "properties": {
+            "generator": { "type": "string", "minLength": 1 },
+            "generated_at": { "type": "string", "minLength": 1 },
+            "report_id": { "type": "string", "minLength": 1 },
+            "openenisa_version": { "type": ["string", "null"] },
+            "notes": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      }
+    }
+  }
+}

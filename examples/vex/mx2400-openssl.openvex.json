@@ -1,0 +1,27 @@
+{
+  "document": {
+    "@context": "https://openvex.dev/v1.0.0",
+    "id": "https://meridian.example/vex/mx2400-openssl-cve-2024-0727",
+    "author": "Meridian PSIRT",
+    "role": "Product Security",
+    "timestamp": "2026-10-09T08:30:00Z",
+    "lastKnownGoodVersion": 1,
+    "version": 1
+  },
+  "statements": [
+    {
+      "timestamp": "2026-10-09T08:30:00Z",
+      "vulnerability": {
+        "id": "CVE-2024-0727"
+      },
+      "products": [
+        {
+          "@id": "pkg:generic/openssl@3.0.12"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "The MX-2400 firmware disables PKCS#12 parsing at build time; the vulnerable code path is unreachable."
+    }
+  ]
+}

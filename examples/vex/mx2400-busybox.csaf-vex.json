@@ -1,0 +1,63 @@
+{
+  "document": {
+    "category": "csaf_vex",
+    "csaf_version": "2.0",
+    "lang": "en",
+    "title": "VEX statement: busybox CVE-2023-42366 fixed in MX-2400 Server Firmware",
+    "publisher": {
+      "category": "vendor",
+      "name": "Meridian Systems",
+      "namespace": "https://meridian.example"
+    },
+    "tracking": {
+      "id": "meridian-systems-2026-vex-0002",
+      "status": "final",
+      "version": "1",
+      "initial_release_date": "2026-10-09T09:15:00Z",
+      "current_release_date": "2026-10-09T09:15:00Z",
+      "generator": {
+        "engine": { "name": "meridian-vex-cli", "version": "1.2" },
+        "date": "2026-10-09T09:15:00Z"
+      },
+      "revision_history": [
+        {
+          "date": "2026-10-09T09:15:00Z",
+          "number": "1",
+          "summary": "Initial VEX statement"
+        }
+      ]
+    },
+    "notes": [
+      {
+        "category": "description",
+        "text": "Statement of applicability for CVE-2023-42366 across MX-2400 Server Firmware releases."
+      }
+    ]
+  },
+  "product_tree": {
+    "full_product_names": [
+      {
+        "product_id": "CSAFPID-0001",
+        "name": "busybox 1.36.0",
+        "product_identification_helper": {
+          "purl": "pkg:generic/busybox@1.36.0"
+        }
+      }
+    ]
+  },
+  "vulnerabilities": [
+    {
+      "cve": "CVE-2023-42366",
+      "title": "busybox awk use-after-free",
+      "product_status": {
+        "fixed": ["CSAFPID-0001"]
+      },
+      "notes": [
+        {
+          "category": "summary",
+          "text": "Use-after-free in the busybox awk interpreter, fixed upstream in 1.36.1."
+        }
+      ]
+    }
+  ]
+}

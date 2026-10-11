@@ -1,0 +1,43 @@
+{
+  "@context": [
+    "https://spdx.org/rdf/3.0.0/spdx-context.jsonld"
+  ],
+  "@graph": [
+    {
+      "type": "CreationInfo",
+      "spdxId": "spdx:creation-info",
+      "created": "2026-10-08T04:12:00Z",
+      "createdBy": ["spdx:agent-meridian"]
+    },
+    {
+      "type": "spdx:SoftwareArtifact",
+      "spdxId": "spdx:software-artifact-aurora",
+      "name": "Aurora Sensor Node",
+      "packageVersion": "0.9.2"
+    },
+    {
+      "type": "software_Package",
+      "spdxId": "spdx:software-package-zlib",
+      "name": "zlib",
+      "packageVersion": "1.2.13",
+      "externalIdentifier": [
+        {
+          "externalIdentifierType": "purl",
+          "identifier": "pkg:generic/zlib@1.2.13"
+        }
+      ]
+    },
+    {
+      "type": "software_Package",
+      "spdxId": "spdx:software-package-libssh2",
+      "name": "libssh2",
+      "packageVersion": "1.11.0",
+      "externalIdentifier": [
+        {
+          "externalIdentifierType": "purl",
+          "identifier": "pkg:generic/libssh2@1.11.0"
+        }
+      ]
+    }
+  ]
+}

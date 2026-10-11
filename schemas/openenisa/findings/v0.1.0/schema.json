@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openenisa.dev/schemas/findings/v0.1.0/schema.json",
+  "title": "openenisa findings document",
+  "description": "Intermediate, lossless representation of SBOM vulnerability matches and their VEX triage status. Produced by `openenisa match` / `openenisa triage` / `openenisa pipeline` and consumed by `openenisa csaf` and `openenisa enisa report`.",
+  "type": "object",
+  "required": ["document"],
+  "properties": {
+    "document": {
+      "type": "object",
+      "required": ["generator", "generated_at", "sbom", "findings"],
+      "properties": {
+        "generator": { "type": "string", "minLength": 1 },
+        "generated_at": { "type": "string", "minLength": 1 },
+        "sbom": {
+          "type": "object",
+          "required": ["path"],
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "format": { "type": ["string", "null"] },
+            "spec_version": { "type": ["string", "null"] },
+            "sha256": { "type": ["string", "null"] },
+            "components": { "type": "integer", "minimum": 0 },
+            "product": {
+              "type": ["object", "null"],
+              "properties": {
+                "name": { "type": "string" },
+                "version": { "type": ["string", "null"] },
+                "purl": { "type": ["string", "null"] },
+                "cpe": { "type": ["string", "null"] }
+              }
+            }
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["vulnerability", "component", "status"],
+            "properties": {
+              "vulnerability": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": { "type": "string", "minLength": 1 },
+                  "aliases": { "type": "array", "items": { "type": "string" } },
+                  "summary": { "type": ["string", "null"] },
+                  "cvss": { "type": ["string", "null"] },
+                  "references": { "type": "array", "items": { "type": "string" } }
+                }
+              },
+              "component": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "version": { "type": ["string", "null"] },
+                  "purl": { "type": ["string", "null"] },
+                  "cpe": { "type": ["string", "null"] },
+                  "bom_ref": { "type": ["string", "null"] }
+                }
+              },
+              "status": {
+                "enum": ["affected", "not_affected", "fixed", "under_investigation"]
+              },
+              "justification": { "type": ["string", "null"] },
+              "impact": { "type": ["string", "null"] },
+              "matched_by": { "type": "string" },
+              "vex_source": { "type": ["string", "null"] },
+              "fixed_in": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}
