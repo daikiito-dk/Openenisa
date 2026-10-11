@@ -746,7 +746,7 @@ fn cmd_validate(path: &Path, json: bool) -> Result<ExitCode> {
             Ok(sbom) => {
                 if json {
                     let summary = json!({
-                        "kind": format!("{}", sbom.format.as_ref().map(|f| f.to_string()).unwrap_or_default()),
+                        "kind": sbom.format.as_ref().map(|f| f.to_string()).unwrap_or_default(),
                         "valid": true,
                         "components": sbom.components.len(),
                     });
