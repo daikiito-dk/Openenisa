@@ -6,6 +6,8 @@
 
 [English](README.md) | **日本語**
 
+**ドキュメント:** [daikiito-dk.github.io/Openenisa](https://daikiito-dk.github.io/Openenisa/)
+
 > DevOps のためのオープンソース CSAF 2.0 / ENISA 報告エンジン。
 
 **SBOM・脆弱性フィード・VEX ステートメント**を、**スキーマ検証済みの CSAF 2.0 文書**と**ENISA 提出用の早期警告エンベロープ**に変換します。サイバーレジリエンス規則(CRA)の24時間タイマーに対応。単一の静的バイナリ、完全オフライン、CI パイプラインとインシデント対応の自動化のために設計されています。

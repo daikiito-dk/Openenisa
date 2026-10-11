@@ -6,6 +6,8 @@
 
 **English** | [日本語 (Japanese)](README.ja.md)
 
+**Docs:** [daikiito-dk.github.io/Openenisa](https://daikiito-dk.github.io/Openenisa/)
+
 > The open-source CSAF 2.0 & ENISA reporting engine for DevOps.
 
 Turn a pile of SBOMs, vulnerability feeds, and VEX statements into a **schema-valid CSAF 2.0 document** and an **ENISA-ready early-warning envelope**, on the Cyber Resilience Act's 24-hour clock. One static binary, 100% offline, designed for CI pipelines and incident response automation.

@@ -1,3 +1,8 @@
+---
+layout: default
+title: Technical specification
+---
+
 # openenisa technical specification
 
 Version 0.1.0. This document describes the architecture, data flow, intermediate formats, and validation guarantees of `openenisa`.

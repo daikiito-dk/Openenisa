@@ -1,0 +1,6 @@
+title: openenisa
+description: The open-source CSAF 2.0 &amp; ENISA reporting engine for DevOps
+theme: jekyll-theme-cayman
+markdown: kramdown
+permalink: pretty
+baseurl: "/Openenisa"

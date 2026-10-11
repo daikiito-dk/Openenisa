@@ -1,3 +1,8 @@
+---
+layout: default
+title: CI/CD recipes
+---
+
 # CI/CD recipes
 
 openenisa is a single static binary with machine-readable output (`--json`) and CI-friendly exit codes. Every recipe below assumes you produce an SBOM during build (CycloneDX and SPDX both supported).
@@ -34,7 +39,7 @@ jobs:
           fail-on: affected
 ```
 
-The action installs openenisa, runs the pipeline, and uploads `findings.json`, `csaf.json`, and the ENISA envelope as artifacts. Find more inputs in [action.yml](../action.yml).
+The action installs openenisa, runs the pipeline, and uploads `findings.json`, `csaf.json`, and the ENISA envelope as artifacts. Find more inputs in [action.yml](https://github.com/daikiito-dk/Openenisa/blob/main/action.yml).
 
 ## GitHub Actions (raw binary)
 

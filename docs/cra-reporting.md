@@ -1,3 +1,8 @@
+---
+layout: default
+title: CRA Article 14 reporting
+---
+
 # CRA Article 14 vulnerability reporting, and where openenisa fits
 
 **This document is engineering context, not legal advice.** Consult counsel for your obligations under Regulation (EU) 2024/2847.
