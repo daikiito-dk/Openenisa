@@ -24,7 +24,7 @@ The open-source CSAF 2.0 & ENISA reporting engine for DevOps.
 
 Parse an SBOM, match it against OSV vulnerability feeds, correlate VEX
 statements to eliminate false positives, generate a schema-valid CSAF 2.0
-document, and track the CRA Article 14 statutory clock (24h / 72h / 14d)
+document, and track the CRA Article 14 statutory clock (24h / 72h / final)
 — fully offline, deterministic, CI-native.
 "#;
 
@@ -200,11 +200,22 @@ enum Command {
 #[derive(Subcommand)]
 #[allow(clippy::large_enum_variant)] // clap-generated variants; size spread is fine here
 enum EnisaCommand {
-    /// Print the 24h / 72h / 14-day statutory deadlines for an event.
+    /// Print the statutory deadlines (24h / 72h from awareness, then the final report).
     Deadlines {
         /// Moment of awareness (RFC 3339 or "now").
         #[arg(long = "aware-at", required = true)]
         aware_at: String,
+        /// Vulnerability or incident (decides the final report's clock).
+        #[arg(long, default_value = "vulnerability")]
+        classification: String,
+        /// When a corrective or mitigating measure became available; starts the
+        /// 14-day final-report clock for a vulnerability (Art. 14(2)(c)).
+        #[arg(long = "measure-available-at")]
+        measure_available_at: Option<String>,
+        /// When the 72h incident notification was submitted; starts the
+        /// one-month final-report clock for a severe incident (Art. 14(4)(c)).
+        #[arg(long = "notified-at")]
+        notified_at: Option<String>,
         /// Reference "now" for remaining-time computation (default: actual now).
         #[arg(long)]
         now: Option<String>,
@@ -216,7 +227,8 @@ enum EnisaCommand {
     Report {
         /// Triaged findings JSON.
         findings: PathBuf,
-        /// Report type: early-warning (24h), notification (72h), final-report (14d).
+        /// Report type: early-warning (24h), notification (72h), final-report
+        /// (14d after a fix for a vulnerability, 1 month after notification for an incident).
         #[arg(long = "type", default_value = "early-warning")]
         report_type: String,
         /// Vulnerability or incident.
@@ -225,6 +237,14 @@ enum EnisaCommand {
         /// Moment of awareness (RFC 3339 or "now"); defaults to --at / now.
         #[arg(long = "aware-at")]
         aware_at: Option<String>,
+        /// When a corrective or mitigating measure became available
+        /// (required for a vulnerability final report).
+        #[arg(long = "measure-available-at")]
+        measure_available_at: Option<String>,
+        /// When the 72h incident notification was submitted
+        /// (required for an incident final report).
+        #[arg(long = "notified-at")]
+        notified_at: Option<String>,
         /// Reporter name (defaults to --vendor-name).
         #[arg(long = "reporter-name")]
         reporter_name: Option<String>,
@@ -315,14 +335,26 @@ fn run(cli: Cli) -> Result<ExitCode> {
         Command::Enisa { command } => match command {
             EnisaCommand::Deadlines {
                 aware_at,
+                classification,
+                measure_available_at,
+                notified_at,
                 now,
                 json,
-            } => cmd_enisa_deadlines(&aware_at, now.as_deref(), json),
+            } => cmd_enisa_deadlines(
+                &aware_at,
+                &classification,
+                measure_available_at.as_deref(),
+                notified_at.as_deref(),
+                now.as_deref(),
+                json,
+            ),
             EnisaCommand::Report {
                 findings,
                 report_type,
                 classification,
                 aware_at,
+                measure_available_at,
+                notified_at,
                 reporter_name,
                 contact,
                 national_csirt,
@@ -335,6 +367,8 @@ fn run(cli: Cli) -> Result<ExitCode> {
                 &report_type,
                 &classification,
                 aware_at.as_deref(),
+                measure_available_at.as_deref(),
+                notified_at.as_deref(),
                 reporter_name.as_deref(),
                 contact.as_deref(),
                 national_csirt.as_deref(),
@@ -802,55 +836,131 @@ fn cmd_validate(path: &Path, json: bool) -> Result<ExitCode> {
     }
 }
 
-fn cmd_enisa_deadlines(aware_at: &str, now: Option<&str>, json: bool) -> Result<ExitCode> {
+fn cmd_enisa_deadlines(
+    aware_at: &str,
+    classification: &str,
+    measure_available_at: Option<&str>,
+    notified_at: Option<&str>,
+    now: Option<&str>,
+    json: bool,
+) -> Result<ExitCode> {
     let aware = now_or(Some(aware_at))?;
+    let classification = enisa::Classification::parse(classification)?;
+    let final_clock_start_at =
+        final_clock_start(classification, measure_available_at, notified_at)?;
     let now = now_or(now)?;
 
-    let rows: Vec<(ReportType, DateTime<Utc>, TimelineVerdict)> = ReportType::all()
+    // A final-report row has no due date until its clock-start event has happened.
+    let rows: Vec<(ReportType, Option<DateTime<Utc>>)> = ReportType::all()
         .into_iter()
         .map(|t| {
-            (
-                t,
-                enisa::deadline(&aware, t),
-                TimelineVerdict::evaluate(&enisa::deadline(&aware, t), now),
-            )
+            let start = match t.clock_start(classification) {
+                enisa::ClockStart::Awareness => Some(aware),
+                _ => final_clock_start_at,
+            };
+            (t, start.map(|s| enisa::deadline(&s, t, classification)))
         })
         .collect();
 
     if json {
         let value = json!({
             "aware_at": rfc3339(&aware),
+            "classification": classification.as_str(),
             "now": rfc3339(&now),
-            "deadlines": rows.iter().map(|(t, due, verdict)| json!({
-                "type": t.as_str(),
-                "sla_hours": t.sla_hours(),
-                "due_at": rfc3339(due),
-                "status": verdict.label(),
-                "remaining_seconds": (due.timestamp() - now.timestamp()).to_string(),
-            })).collect::<Vec<_>>(),
+            "deadlines": rows.iter().map(|(t, due)| {
+                let window = t.window(classification);
+                let (due_at, status, remaining) = match due {
+                    Some(due) => (
+                        Some(rfc3339(due)),
+                        TimelineVerdict::evaluate(due, now).label(),
+                        Some((due.timestamp() - now.timestamp()).to_string()),
+                    ),
+                    None => (None, "PENDING", None),
+                };
+                json!({
+                    "type": t.as_str(),
+                    "clock_start": t.clock_start(classification).as_str(),
+                    "window": window.iso8601(),
+                    "sla_hours": window.hours(),
+                    "due_at": due_at,
+                    "status": status,
+                    "remaining_seconds": remaining,
+                })
+            }).collect::<Vec<_>>(),
         });
         println!("{}", serde_json::to_string_pretty(&value)?);
         return Ok(ExitCode::SUCCESS);
     }
 
     println!(
-        "Statutory clock (CRA Article 14) — aware at {}",
+        "Statutory clock (CRA Article 14, {}) — aware at {}",
+        classification.as_str(),
         rfc3339(&aware)
     );
     println!();
     let table_rows: Vec<Vec<String>> = rows
         .iter()
-        .map(|(t, due, verdict)| {
-            vec![
-                format!("{} ({}h)", t.label(), t.sla_hours()),
-                rfc3339(due),
-                verdict.label().to_string(),
-                verdict.detail(),
-            ]
+        .map(|(t, due)| {
+            let window = t.window(classification);
+            let clock_start = t.clock_start(classification);
+            let label = match clock_start {
+                enisa::ClockStart::Awareness => format!("{} ({})", t.label(), window.label()),
+                _ => format!(
+                    "{} ({} after {})",
+                    t.label(),
+                    window.label(),
+                    clock_start.short()
+                ),
+            };
+            match due {
+                Some(due) => {
+                    let verdict = TimelineVerdict::evaluate(due, now);
+                    vec![
+                        label,
+                        rfc3339(due),
+                        verdict.label().to_string(),
+                        verdict.detail(),
+                    ]
+                }
+                None => vec![
+                    label,
+                    "-".into(),
+                    "PENDING".into(),
+                    format!("pass {} to start the clock", clock_start.flag()),
+                ],
+            }
         })
         .collect();
     report::table(&["REPORT", "DUE AT (UTC)", "STATUS", "TIME"], &table_rows);
     Ok(ExitCode::SUCCESS)
+}
+
+/// The moment the final report's clock started, from the flag that matches
+/// the classification. A flag for the other classification is an error rather
+/// than silently ignored, since it signals a mixed-up report.
+fn final_clock_start(
+    classification: enisa::Classification,
+    measure_available_at: Option<&str>,
+    notified_at: Option<&str>,
+) -> Result<Option<DateTime<Utc>>> {
+    match classification {
+        enisa::Classification::Vulnerability => {
+            if notified_at.is_some() {
+                anyhow::bail!(
+                    "--notified-at applies to incidents; a vulnerability final report runs from --measure-available-at"
+                );
+            }
+            measure_available_at.map(|s| now_or(Some(s))).transpose()
+        }
+        enisa::Classification::Incident => {
+            if measure_available_at.is_some() {
+                anyhow::bail!(
+                    "--measure-available-at applies to vulnerabilities; an incident final report runs from --notified-at"
+                );
+            }
+            notified_at.map(|s| now_or(Some(s))).transpose()
+        }
+    }
 }
 
 // The CLI dispatcher mirrors the clap subcommand fields 1:1; grouping them
@@ -861,6 +971,8 @@ fn cmd_enisa_report(
     report_type: &str,
     classification: &str,
     aware_at: Option<&str>,
+    measure_available_at: Option<&str>,
+    notified_at: Option<&str>,
     reporter_name: Option<&str>,
     contact: Option<&str>,
     national_csirt: Option<&str>,
@@ -877,6 +989,8 @@ fn cmd_enisa_report(
         Some(s) => now_or(Some(s))?,
         None => now,
     };
+    let final_clock_start_at =
+        final_clock_start(classification, measure_available_at, notified_at)?;
 
     let csaf_value = csaf::build_document(&args.config()?, &doc)?;
     let csaf_validation = csaf::validate::validate_csaf(&csaf_value);
@@ -897,6 +1011,7 @@ fn cmd_enisa_report(
         reporter_contact: contact.map(str::to_string),
         national_csirt: national_csirt.map(str::to_string),
         aware_at,
+        final_clock_start_at,
         exploited: args.exploited,
         now,
     };
@@ -1174,6 +1289,7 @@ fn cmd_pipeline(
             reporter_contact: None,
             national_csirt: None,
             aware_at,
+            final_clock_start_at: None,
             exploited: args.exploited,
             now,
         };

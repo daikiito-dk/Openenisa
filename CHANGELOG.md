@@ -2,6 +2,17 @@
 
 All notable changes to openenisa are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Final-report deadline.** It was computed as awareness + 14 days for every report. CRA Article 14 starts that clock later: **14 days after a corrective or mitigating measure is available** for a vulnerability (Art. 14(2)(c)), and **one month after the notification** for a severe incident (Art. 14(4)(c)). `enisa deadlines` now shows the final report as `PENDING` until `--measure-available-at` (vulnerability) or `--notified-at` (incident) is given; `enisa report --type final-report` requires the matching flag.
+- Docs: Article references corrected to 14(2)(a)–(c) / 14(4)(a)–(c); `CRITICAL` documented as "under 2 hours remaining" (the implemented behaviour), not "inside 20% of the window"; envelope `classification` values documented as `vulnerability` / `incident`.
+
+### Added
+
+- Envelope `timeline.clock_start` (`event`, `at`) and `timeline.window` (ISO 8601 duration). `sla_hours` may be `null` for the calendar-month window. Additive: envelopes produced by 0.1.0 still validate.
+
 ## [0.1.0] - 2026-10-11
 
 Initial public release.

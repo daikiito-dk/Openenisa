@@ -16,6 +16,11 @@
       },
       "timeline": {
         "aware_at": "2026-10-10T09:00:00Z",
+        "clock_start": {
+          "event": "awareness",
+          "at": "2026-10-10T09:00:00Z"
+        },
+        "window": "PT24H",
         "due_at": "2026-10-11T09:00:00Z",
         "sla_hours": 24
       },

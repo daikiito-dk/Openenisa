@@ -16,11 +16,12 @@ Turn a pile of SBOMs, vulnerability feeds, and VEX statements into a **schema-va
 
 Since **11 September 2026**, every manufacturer placing products with digital elements on the EU market must report actively-exploited vulnerabilities to ENISA:
 
-| Stage | Deadline | Since awareness |
-|---|---|---|
-| Early warning | 24 hours | Art. 14(1) |
-| Incident notification | 72 hours | Art. 14(2) |
-| Final report | 14 days (336 h) | Art. 14(3) |
+| Stage | Deadline | Clock starts at | Article |
+|---|---|---|---|
+| Early warning | 24 hours | awareness | 14(2)(a) / 14(4)(a) |
+| Notification | 72 hours | awareness | 14(2)(b) / 14(4)(b) |
+| Final report (vulnerability) | 14 days | a corrective or mitigating measure is available | 14(2)(c) |
+| Final report (severe incident) | 1 month | the 72 h notification | 14(4)(c) |
 
 Your monitoring feed just told you CVE-2023-48795 is being exploited and it's in your firmware. What do you send ENISA, in what format, by when? Today the answer involves manually copying CVE IDs into a web portal while the clock burns. `openenisa` answers it in one command: **SBOM in, validated submission-ready documents out**.
 
@@ -89,7 +90,7 @@ Prebuilt static binaries for Linux (amd64/arm64), macOS (arm64), and Windows are
 | `triage --findings ... --vex ...` | Apply OpenVEX / CSAF VEX / CycloneDX VEX statements to findings |
 | `csaf --findings ... --vendor-name ... --vendor-namespace ...` | Build a CSAF 2.0 VEX document |
 | `validate <file>` | Validate a CSAF document, findings, or envelope against embedded schemas |
-| `enisa deadlines --aware-at ...` | Print the 24h / 72h / 14-day statutory deadlines |
+| `enisa deadlines --aware-at ... [--measure-available-at ...]` | Print the statutory deadlines; the final report stays PENDING until its clock starts |
 | `enisa report --findings ... --type early-warning ...` | Build an ENISA envelope with embedded CSAF + evidence |
 | `enisa submit <envelope> [--now ...]` | Dry-run: readiness check + clock + dispatch template |
 | `pipeline` | All of the above, one command, exit codes for CI |

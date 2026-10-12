@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openenisa.dev/schemas/enisa/envelope/v0.1.0/schema.json",
   "title": "openenisa ENISA submission envelope",
-  "description": "A self-contained, submission-ready report package for CRA Article 14 obligations (24-hour early warning / 72-hour notification / 14-day final report). The envelope embeds a CSAF 2.0 document as evidence, records the statutory timeline, and validates offline. openenisa emits this format; live dispatch to the ENISA Single Reporting Platform is a pluggable transport concern (dry-run by default).",
+  "description": "A self-contained, submission-ready report package for CRA Article 14 obligations (24-hour early warning and 72-hour notification from awareness; final report 14 days after a corrective measure is available for vulnerabilities, or one month after the notification for severe incidents). The envelope embeds a CSAF 2.0 document as evidence, records the statutory timeline, and validates offline. openenisa emits this format; live dispatch to the ENISA Single Reporting Platform is a pluggable transport concern (dry-run by default).",
   "type": "object",
   "required": ["enisa_envelope"],
   "properties": {
@@ -45,8 +45,21 @@
               "required": ["aware_at", "due_at", "sla_hours"],
               "properties": {
                 "aware_at": { "type": "string", "minLength": 1 },
+                "clock_start": {
+                  "type": "object",
+                  "description": "The event that started this report's statutory clock. Awareness for early warnings and notifications; a corrective measure becoming available (vulnerability) or the notification being submitted (incident) for final reports.",
+                  "required": ["event", "at"],
+                  "properties": {
+                    "event": { "enum": ["awareness", "measure_available", "notification_submitted"] },
+                    "at": { "type": "string", "minLength": 1 }
+                  }
+                },
+                "window": { "enum": ["PT24H", "PT72H", "P14D", "P1M"] },
                 "due_at": { "type": "string", "minLength": 1 },
-                "sla_hours": { "enum": [24, 72, 336] }
+                "sla_hours": {
+                  "description": "Window length in hours; null when the window is calendar-based (P1M).",
+                  "enum": [24, 72, 336, null]
+                }
               }
             },
             "vulnerabilities": {

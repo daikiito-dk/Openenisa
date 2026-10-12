@@ -2,8 +2,11 @@
 //!
 //! Since 11 September 2026, manufacturers must report actively exploited
 //! vulnerabilities and severe incidents to ENISA and their national CSIRT:
-//! early warning within **24 hours**, incident notification within **72
-//! hours**, and the final report within **14 days** of becoming aware.
+//! early warning within **24 hours** and notification within **72 hours** of
+//! becoming aware. The final report runs on a different clock: for a
+//! vulnerability, **14 days after a corrective or mitigating measure is
+//! available** (Art. 14(2)(c)); for a severe incident, **one month after the
+//! notification** (Art. 14(4)(c)).
 //! The ENISA Single Reporting Platform (SRP) is live at
 //! <https://portal.cra-srp.enisa.europa.eu/> as a web portal; its machine
 //! API surface has not been published yet.
@@ -17,7 +20,7 @@
 
 use crate::model::{FindingsDoc, VexStatus, sha256_hex};
 use anyhow::{Result, bail};
-use chrono::{DateTime, Duration, SecondsFormat, Utc};
+use chrono::{DateTime, Duration, Months, SecondsFormat, Utc};
 use serde_json::{Value, json};
 
 /// The three statutory report types under CRA Article 14.
@@ -58,12 +61,26 @@ impl ReportType {
         }
     }
 
-    /// Statutory window in hours: 24 / 72 / 336 (14 days).
-    pub fn sla_hours(&self) -> i64 {
-        match self {
-            ReportType::EarlyWarning => 24,
-            ReportType::Notification => 72,
-            ReportType::FinalReport => 336,
+    /// The event that starts this report's statutory clock.
+    pub fn clock_start(&self, classification: Classification) -> ClockStart {
+        match (self, classification) {
+            (ReportType::FinalReport, Classification::Vulnerability) => {
+                ClockStart::MeasureAvailable
+            }
+            (ReportType::FinalReport, Classification::Incident) => {
+                ClockStart::NotificationSubmitted
+            }
+            _ => ClockStart::Awareness,
+        }
+    }
+
+    /// Statutory window measured from [`ReportType::clock_start`].
+    pub fn window(&self, classification: Classification) -> Window {
+        match (self, classification) {
+            (ReportType::EarlyWarning, _) => Window::Hours(24),
+            (ReportType::Notification, _) => Window::Hours(72),
+            (ReportType::FinalReport, Classification::Vulnerability) => Window::Hours(336),
+            (ReportType::FinalReport, Classification::Incident) => Window::Months(1),
         }
     }
 
@@ -73,6 +90,98 @@ impl ReportType {
             ReportType::Notification,
             ReportType::FinalReport,
         ]
+    }
+}
+
+/// The event that starts a statutory clock under CRA Article 14.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClockStart {
+    /// The manufacturer became aware of the exploited vulnerability or incident.
+    Awareness,
+    /// A corrective or mitigating measure became available (Art. 14(2)(c)).
+    MeasureAvailable,
+    /// The 72-hour incident notification was submitted (Art. 14(4)(c)).
+    NotificationSubmitted,
+}
+
+impl ClockStart {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ClockStart::Awareness => "awareness",
+            ClockStart::MeasureAvailable => "measure_available",
+            ClockStart::NotificationSubmitted => "notification_submitted",
+        }
+    }
+
+    /// The CLI flag that supplies this moment.
+    pub fn flag(&self) -> &'static str {
+        match self {
+            ClockStart::Awareness => "--aware-at",
+            ClockStart::MeasureAvailable => "--measure-available-at",
+            ClockStart::NotificationSubmitted => "--notified-at",
+        }
+    }
+
+    /// Short form for table labels.
+    pub fn short(&self) -> &'static str {
+        match self {
+            ClockStart::Awareness => "awareness",
+            ClockStart::MeasureAvailable => "fix",
+            ClockStart::NotificationSubmitted => "notification",
+        }
+    }
+
+    pub fn describe(&self) -> &'static str {
+        match self {
+            ClockStart::Awareness => "becoming aware",
+            ClockStart::MeasureAvailable => "a corrective or mitigating measure is available",
+            ClockStart::NotificationSubmitted => "the incident notification is submitted",
+        }
+    }
+}
+
+/// Length of a statutory window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Window {
+    Hours(i64),
+    /// Calendar months (the severe-incident final report is "one month").
+    Months(u32),
+}
+
+impl Window {
+    pub fn after(&self, start: &DateTime<Utc>) -> DateTime<Utc> {
+        match self {
+            Window::Hours(h) => *start + Duration::hours(*h),
+            Window::Months(m) => start
+                .checked_add_months(Months::new(*m))
+                .expect("deadline within chrono's supported range"),
+        }
+    }
+
+    /// Fixed length in hours, when the window has one.
+    pub fn hours(&self) -> Option<i64> {
+        match self {
+            Window::Hours(h) => Some(*h),
+            Window::Months(_) => None,
+        }
+    }
+
+    /// ISO 8601 duration: PT24H / PT72H / P14D / P1M.
+    pub fn iso8601(&self) -> String {
+        match self {
+            Window::Hours(h) if h % 24 == 0 && *h > 72 => format!("P{}D", h / 24),
+            Window::Hours(h) => format!("PT{h}H"),
+            Window::Months(m) => format!("P{m}M"),
+        }
+    }
+
+    pub fn label(&self) -> String {
+        match self {
+            Window::Hours(h) if h % 24 == 0 && *h > 72 => format!("{}d", h / 24),
+            Window::Hours(h) => format!("{h}h"),
+            Window::Months(1) => "1 month".into(),
+            Window::Months(m) => format!("{m} months"),
+        }
     }
 }
 
@@ -99,9 +208,15 @@ impl Classification {
     }
 }
 
-/// Statutory deadline for a report type, given the moment of awareness.
-pub fn deadline(aware_at: &DateTime<Utc>, report_type: ReportType) -> DateTime<Utc> {
-    *aware_at + Duration::hours(report_type.sla_hours())
+/// Statutory deadline for a report type, given the moment its clock started
+/// (see [`ReportType::clock_start`]: awareness for the early warning and
+/// notification, a later event for the final report).
+pub fn deadline(
+    clock_start_at: &DateTime<Utc>,
+    report_type: ReportType,
+    classification: Classification,
+) -> DateTime<Utc> {
+    report_type.window(classification).after(clock_start_at)
 }
 
 fn rfc3339(now: &DateTime<Utc>) -> String {
@@ -117,6 +232,10 @@ pub struct EnisaOptions {
     pub national_csirt: Option<String>,
     /// Moment the manufacturer became aware (Article 14 clock start).
     pub aware_at: DateTime<Utc>,
+    /// Moment the final report's clock started: corrective measure available
+    /// (vulnerability) or notification submitted (incident). Required for
+    /// final reports, ignored otherwise.
+    pub final_clock_start_at: Option<DateTime<Utc>>,
     pub exploited: bool,
     pub now: DateTime<Utc>,
 }
@@ -161,7 +280,22 @@ pub fn build_envelope(opts: &EnisaOptions, doc: &FindingsDoc, csaf: &Value) -> R
     }
 
     let product = doc.sbom.product.as_ref();
-    let due_at = deadline(&opts.aware_at, opts.report_type);
+    let clock_start = opts.report_type.clock_start(opts.classification);
+    let clock_start_at = match clock_start {
+        ClockStart::Awareness => opts.aware_at,
+        _ => match opts.final_clock_start_at {
+            Some(at) => at,
+            None => bail!(
+                "the {} final report is due {} after {}, not after awareness: pass {}",
+                opts.classification.as_str(),
+                opts.report_type.window(opts.classification).label(),
+                clock_start.describe(),
+                clock_start.flag()
+            ),
+        },
+    };
+    let window = opts.report_type.window(opts.classification);
+    let due_at = window.after(&clock_start_at);
 
     let mut vuln_ids: Vec<&str> = actionable.iter().map(|f| f.vuln.id.as_str()).collect();
     vuln_ids.sort_unstable();
@@ -198,8 +332,13 @@ pub fn build_envelope(opts: &EnisaOptions, doc: &FindingsDoc, csaf: &Value) -> R
                 },
                 "timeline": {
                     "aware_at": rfc3339(&opts.aware_at),
+                    "clock_start": {
+                        "event": clock_start.as_str(),
+                        "at": rfc3339(&clock_start_at),
+                    },
+                    "window": window.iso8601(),
                     "due_at": rfc3339(&due_at),
-                    "sla_hours": opts.report_type.sla_hours(),
+                    "sla_hours": window.hours(),
                 },
                 "vulnerabilities": vulnerabilities,
                 "evidence": {
@@ -390,23 +529,111 @@ mod tests {
         }
     }
 
+    fn at(s: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(s).unwrap().with_timezone(&Utc)
+    }
+
     #[test]
     fn deadlines_match_the_statute() {
-        let aware = DateTime::parse_from_rfc3339("2026-10-10T09:00:00Z")
-            .unwrap()
-            .with_timezone(&Utc);
+        let aware = at("2026-10-10T09:00:00Z");
+        let vuln = Classification::Vulnerability;
         assert_eq!(
-            rfc3339(&deadline(&aware, ReportType::EarlyWarning)),
+            rfc3339(&deadline(&aware, ReportType::EarlyWarning, vuln)),
             "2026-10-11T09:00:00Z"
         );
         assert_eq!(
-            rfc3339(&deadline(&aware, ReportType::Notification)),
+            rfc3339(&deadline(&aware, ReportType::Notification, vuln)),
             "2026-10-13T09:00:00Z"
         );
+    }
+
+    #[test]
+    fn final_report_clock_starts_at_the_right_event() {
+        // Art. 14(2)(c): 14 days after a corrective or mitigating measure is available.
         assert_eq!(
-            rfc3339(&deadline(&aware, ReportType::FinalReport)),
-            "2026-10-24T09:00:00Z"
+            ReportType::FinalReport.clock_start(Classification::Vulnerability),
+            ClockStart::MeasureAvailable
         );
+        let measure = at("2026-11-02T12:00:00Z");
+        assert_eq!(
+            rfc3339(&deadline(
+                &measure,
+                ReportType::FinalReport,
+                Classification::Vulnerability
+            )),
+            "2026-11-16T12:00:00Z"
+        );
+
+        // Art. 14(4)(c): one month after the incident notification.
+        assert_eq!(
+            ReportType::FinalReport.clock_start(Classification::Incident),
+            ClockStart::NotificationSubmitted
+        );
+        let notified = at("2026-10-31T09:00:00Z");
+        assert_eq!(
+            rfc3339(&deadline(
+                &notified,
+                ReportType::FinalReport,
+                Classification::Incident
+            )),
+            "2026-11-30T09:00:00Z"
+        );
+
+        assert_eq!(
+            ReportType::EarlyWarning.clock_start(Classification::Incident),
+            ClockStart::Awareness
+        );
+    }
+
+    #[test]
+    fn final_report_without_its_clock_start_is_rejected() {
+        let doc = triaged_doc();
+        let now = at("2026-10-10T09:00:00Z");
+        let opts = EnisaOptions {
+            report_type: ReportType::FinalReport,
+            classification: Classification::Vulnerability,
+            reporter_name: "Meridian Systems".into(),
+            reporter_contact: None,
+            national_csirt: None,
+            aware_at: now,
+            final_clock_start_at: None,
+            exploited: true,
+            now,
+        };
+        let err = build_envelope(&opts, &doc, &json!({})).unwrap_err();
+        assert!(err.to_string().contains("--measure-available-at"), "{err}");
+    }
+
+    #[test]
+    fn final_report_envelope_records_its_clock_start() {
+        let doc = triaged_doc();
+        let csaf = build_document(
+            &CsafConfig {
+                publisher_name: "Meridian Systems".into(),
+                publisher_namespace: "https://meridian.example".into(),
+                ..CsafConfig::default()
+            },
+            &doc,
+        )
+        .unwrap();
+        let opts = EnisaOptions {
+            report_type: ReportType::FinalReport,
+            classification: Classification::Vulnerability,
+            reporter_name: "Meridian Systems".into(),
+            reporter_contact: None,
+            national_csirt: None,
+            aware_at: at("2026-10-10T09:00:00Z"),
+            final_clock_start_at: Some(at("2026-11-02T12:00:00Z")),
+            exploited: true,
+            now: at("2026-11-03T00:00:00Z"),
+        };
+        let envelope = build_envelope(&opts, &doc, &csaf).unwrap();
+        let timeline = envelope.pointer("/enisa_envelope/report/timeline").unwrap();
+        assert_eq!(timeline["due_at"], "2026-11-16T12:00:00Z");
+        assert_eq!(timeline["clock_start"]["event"], "measure_available");
+        assert_eq!(timeline["window"], "P14D");
+        let result = crate::csaf::validate::validate_envelope(&envelope);
+        assert!(result.valid, "{:?}", result.problems());
     }
 
     #[test]
@@ -430,6 +657,7 @@ mod tests {
             reporter_contact: Some("psirt@meridian.example".into()),
             national_csirt: Some("CERT-EU".into()),
             aware_at: now,
+            final_clock_start_at: None,
             exploited: true,
             now,
         };
@@ -451,7 +679,11 @@ mod tests {
         let aware = DateTime::parse_from_rfc3339("2026-10-09T00:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
-        let due = deadline(&aware, ReportType::EarlyWarning);
+        let due = deadline(
+            &aware,
+            ReportType::EarlyWarning,
+            Classification::Vulnerability,
+        );
         let now = DateTime::parse_from_rfc3339("2026-10-11T12:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -472,6 +704,7 @@ mod tests {
             reporter_contact: None,
             national_csirt: None,
             aware_at: Utc::now(),
+            final_clock_start_at: None,
             exploited: false,
             now: Utc::now(),
         };

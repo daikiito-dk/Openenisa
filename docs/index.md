@@ -9,11 +9,12 @@ Turn SBOMs, vulnerability feeds, and VEX statements into a **schema-valid CSAF 2
 
 Since **11 September 2026**, manufacturers placing products with digital elements on the EU market must report actively-exploited vulnerabilities to ENISA:
 
-| Stage | Deadline | Since awareness |
-|---|---|---|
-| Early warning | 24 hours | Art. 14(1) |
-| Incident notification | 72 hours | Art. 14(2) |
-| Final report | 14 days (336 h) | Art. 14(3) |
+| Stage | Deadline | Clock starts at | Article |
+|---|---|---|---|
+| Early warning | 24 hours | awareness | 14(2)(a) / 14(4)(a) |
+| Notification | 72 hours | awareness | 14(2)(b) / 14(4)(b) |
+| Final report (vulnerability) | 14 days | a corrective or mitigating measure is available | 14(2)(c) |
+| Final report (severe incident) | 1 month | the 72 h notification | 14(4)(c) |
 
 Your feed flags an exploited CVE in your firmware. What do you send ENISA, in what format, by when? `openenisa` answers in one command: **SBOM in, validated submission-ready documents out.**
 

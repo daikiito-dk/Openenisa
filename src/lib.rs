@@ -5,8 +5,9 @@
 //! feeds, correlate [VEX](https://www.cisa.gov/sites/default/files/2023-11/README-OpenVEX-v1.0-e1670018367040.pdf)
 //! statements to eliminate false positives, emit a schema-valid
 //! [CSAF 2.0](https://docs.oasis-open.org/csaf/csaf/v2.0/csaf-v2.0.html)
-//! document, and prepare ENISA-ready report envelopes on the statutory
-//! 24-hour / 72-hour / 14-day clock — fully offline.
+//! document, and prepare ENISA-ready report envelopes on the CRA Article 14
+//! statutory clock (24 h / 72 h from awareness, then the final report) —
+//! fully offline.
 //!
 //! The crate is deliberately lean: `serde_json`, `quick-xml`, `chrono`,
 //! `sha2`, `clap`, and the `jsonschema` validator. Everything else — SBOM

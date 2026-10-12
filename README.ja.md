@@ -16,11 +16,12 @@
 
 **2026年9月11日**以降、デジタル要素を含む製品を EU 市場に投入するすべての製造者は、アクティブに悪用されている脆弱性を ENISA に報告する義務を負います。
 
-| 段階 | 期限 | 気知からの経過 |
-|---|---|---|
-| 早期警告 (Early warning) | 24時間 | 第14条(1) |
-| インシデント通知 (Notification) | 72時間 | 第14条(2) |
-| 最終報告 (Final report) | 14日 (336時間) | 第14条(3) |
+| 段階 | 期限 | 起点 | 条文 |
+|---|---|---|---|
+| 早期警告 (Early warning) | 24時間 | 認識した時点 | 第14条(2)(a) / (4)(a) |
+| 通知 (Notification) | 72時間 | 認識した時点 | 第14条(2)(b) / (4)(b) |
+| 最終報告(脆弱性) | 14日 | 是正措置・緩和措置が利用可能になった時点 | 第14条(2)(c) |
+| 最終報告(重大インシデント) | 1か月 | 72時間通知の提出 | 第14条(4)(c) |
 
 監視フィードが「CVE-2023-48795 が悪用中で、あなたのファームウェアに含まれている」と告げた瞬間、**何を・どんな形式で・いつまでに** ENISA に送りますか?今日その答えは、CVE ID を Web ポータルに手で転記しながら時計を焦らす作業です。`openenisa` はコマンド1つで答えます。**SBOM を入力すれば、検証済みの提出可能文書が出力される。**
 
@@ -89,7 +90,7 @@ Linux (amd64/arm64)・macOS (arm64)・Windows のビルド済みバイナリは�
 | `triage --findings ... --vex ...` | OpenVEX / CSAF VEX / CycloneDX VEX ステートメントの適用 |
 | `csaf --findings ... --vendor-name ... --vendor-namespace ...` | CSAF 2.0 VEX 文書の生成 |
 | `validate <file>` | CSAF・findings・エンベロープを組み込みスキーマで検証 |
-| `enisa deadlines --aware-at ...` | 24時間 / 72時間 / 14日の法定期限を表示 |
+| `enisa deadlines --aware-at ... [--measure-available-at ...]` | 法定期限を表示(最終報告は起点が来るまで PENDING) |
 | `enisa report --findings ... --type early-warning ...` | CSAF + 証拠を組み込んだ ENISA エンベロープの生成 |
 | `enisa submit <envelope> [--now ...]` | ドライラン: 準備確認 + 時計 + 送信テンプレート |
 | `pipeline` | 上記すべてを1コマンドで。CI 用終了コードつき |

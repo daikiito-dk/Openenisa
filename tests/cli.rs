@@ -408,10 +408,55 @@ fn deadlines_table_shows_all_three_statutory_windows() {
         text.contains("2026-10-13T09:00:00Z"),
         "72h missing in\n{text}"
     );
+    // The final report's clock has not started: no fix is available yet.
     assert!(
-        text.contains("2026-10-24T09:00:00Z"),
-        "14d missing in\n{text}"
+        text.contains("PENDING"),
+        "final report not pending in\n{text}"
     );
+    assert!(
+        !text.contains("2026-10-24T09:00:00Z"),
+        "final report must not run from awareness\n{text}"
+    );
+}
+
+#[test]
+fn final_report_deadline_runs_from_the_fix_or_the_notification() {
+    // Vulnerability: 14 days after a corrective measure is available (Art. 14(2)(c)).
+    let out = run(&[
+        "enisa",
+        "deadlines",
+        "--aware-at",
+        "2026-10-10T09:00:00Z",
+        "--measure-available-at",
+        "2026-11-02T12:00:00Z",
+    ]);
+    assert!(out.status.success());
+    assert!(stdout(&out).contains("2026-11-16T12:00:00Z"));
+
+    // Severe incident: one month after the notification (Art. 14(4)(c)).
+    let out = run(&[
+        "enisa",
+        "deadlines",
+        "--classification",
+        "incident",
+        "--aware-at",
+        "2026-10-10T09:00:00Z",
+        "--notified-at",
+        "2026-10-12T09:00:00Z",
+    ]);
+    assert!(out.status.success());
+    assert!(stdout(&out).contains("2026-11-12T09:00:00Z"));
+
+    // A flag for the other classification is refused.
+    let out = run(&[
+        "enisa",
+        "deadlines",
+        "--aware-at",
+        "2026-10-10T09:00:00Z",
+        "--notified-at",
+        "2026-10-12T09:00:00Z",
+    ]);
+    assert!(!out.status.success());
 }
 
 #[test]

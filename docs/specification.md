@@ -99,9 +99,11 @@ Multiple statements for the same (component, vuln): the most severe wins, severi
 
 Envelope schema: `schemas/enisa/envelope/v0.1.0/schema.json`. Contents:
 
-- `report_type`: `early-warning` (24 h), `notification` (72 h), `final-report` (336 h)
-- `classification`: `public`, `green`, `amber`, `red`
-- `aware_at`, `due_at`, and computed deadline verdicts (`ON TRACK`, `CRITICAL` inside 20% of window, `OVERDUE`)
+- `report_type`: `early-warning` (24 h), `notification` (72 h), `final-report` (14 days after a corrective measure is available for a vulnerability; one month after the notification for a severe incident)
+- `classification`: `vulnerability`, `incident`
+- `timeline`: `aware_at`, `clock_start` (`event` = `awareness` / `measure_available` / `notification_submitted`, and `at`), `window` (ISO 8601: `PT24H`, `PT72H`, `P14D`, `P1M`), `due_at`, and `sla_hours` (null for the calendar-month window)
+- Computed deadline verdicts: `ON TRACK`, `CRITICAL` (under 2 hours remaining), `OVERDUE`
+- A final report requires its clock-start moment: `--measure-available-at` (vulnerability) or `--notified-at` (incident)
 - Embedded validated CSAF document + per-evidence hashes (SBOM sha256, VEX source paths, feed record ids)
 
 `enisa submit` performs an offline dry-run: re-validates the envelope and embedded CSAF, evaluates the clock against `--now`, and prints a curl-style dispatch template for when the ENISA SRP publishes its machine API.
